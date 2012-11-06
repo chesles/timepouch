@@ -132,7 +132,7 @@ pouch('ldb://'+dir, function(err, db) {
       if (!meta.current_sheet) {
         return console.error("No timesheet selected!");
       }
-      if (meta.now[meta.current_sheet]) {
+      if (meta.now && meta.now[meta.current_sheet]) {
         return console.error('Already checked into "%s"', meta.current_sheet);
       }
       if (!meta.next_id) {
