@@ -1,0 +1,27 @@
+{
+  "name": "timepouch",
+  "version": "0.0.1",
+  "description": "A simple command-line time tracker, inspired by timetrap and built on PouchDB so its database is syncable.",
+  "bin": "tp.js",
+  "dependencies": {
+    "moment": "~1.7.2",
+    "optimist": "~0.3.5",
+    "pouchdb": "~0.0.4"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chesles/timepouch.git"
+  },
+  "keywords": [
+    "time",
+    "timesheets",
+    "tracking",
+    "pouchdb"
+  ],
+  "author": "John Chesley",
+  "license": "MIT"
+}
