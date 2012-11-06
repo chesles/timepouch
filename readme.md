@@ -8,7 +8,7 @@
 
 ## Basic Usage
 
-    $ tp --help
+    $ timepouch --help
     Options:
       -d, --display  Display checkins for the current sheet
       -s, --sheet    Select or create a sheet              
