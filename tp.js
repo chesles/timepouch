@@ -28,7 +28,7 @@ var argv = options.argv;
 var dir = path.join(process.env.HOME, '.timepouch');
 var out = process.stdout;
 
-var meta_key = '_meta';
+var meta_key = 'metadata';
 
 if (argv.help) {
   options.showHelp();
@@ -40,9 +40,28 @@ pouch('ldb://'+dir, function(err, db) {
     return console.error(err);
   }
 
+  if (argv.migrate) {
+    // migrate _meta doc to new metadata key
+    db.get('_meta', function(err, meta) {
+      if (err) return;
+      db.get(meta_key, function(err, newmeta) {
+        if (newmeta) { console.log('Already migrated; good to go!'); }
+        else {
+          var metarev = meta._rev;
+          meta._id = meta_key;
+
+          db.put(meta, function(err, results) {
+            if (err) return console.error('Migration error:',err);
+            console.log(results);
+            db.remove({_id:'_meta', _rev: metarev}, console.log);
+          });
+        }
+      })
+    });
+  }
 
   // display current sheet
-  if (argv.display) {
+  else if (argv.display) {
     db.get(meta_key, function(err, meta) {
       if (!meta) {
         return console.error('No timesheets or checkins yet!');
