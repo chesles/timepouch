@@ -15,10 +15,11 @@
       -l, --list     Display timesheets                    
       -i, --in       Check in to the current timesheet
       -o, --out      Check out of the current timesheet
+      --sync [url]   Sync changes with the CouchDB server at url
+
 
 # TODO
 
-- Add a sync option
 - Build a web interface to make syncing with a CouchDB useful
 - Improve output formatting and reporting
 - Add editing

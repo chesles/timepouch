@@ -21,6 +21,7 @@ options.describe('s', 'Select or create a sheet');
 options.describe('l', 'Display timesheets');
 options.describe('i', 'Check in to the current timesheet');
 options.describe('o', 'Check out of the current timesheet');
+options.describe('sync [url]', 'Sync changes with the CouchDB server at url');
 
 var argv = options.argv;
 
@@ -188,6 +189,15 @@ pouch('ldb://'+dir, function(err, db) {
     });
   }
   else if (argv.sync) {
-    // TODO: sync!
+    pouch(argv.sync, function(err, remote) {
+      if (err) return console.error(err);
+      db.replicate.to(remote, function(err, upResults) {
+        if (err) return console.error(err.reason);
+        db.replicate.from(remote, function(err, downResults) {
+          if (err) return console.error(err.reason);
+          console.log('Synced %d to remote, %d from remote', upResults.docs_written, downResults.docs_written);
+        });
+      });
+    });
   }
 });
