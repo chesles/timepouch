@@ -5,6 +5,7 @@ var path = require('path')
 
 var pouch = require('pouchdb')
   , moment = require('moment')
+  , timepouch = require('./timepouch')
 
 var options = require('optimist')
   .alias('d', 'display')
@@ -35,188 +36,78 @@ if (argv.help) {
   process.exit();
 }
 
-pouch('ldb://'+dir, function(err, db) {
-  if (err) {
-    return console.error(err);
-  }
+var tp = timepouch(dir);
 
-  if (argv.migrate) {
-    // migrate _meta doc to new metadata key
-    db.get('_meta', function(err, meta) {
-      if (err) return;
-      db.get(meta_key, function(err, newmeta) {
-        if (newmeta) { console.log('Already migrated; good to go!'); }
-        else {
-          var metarev = meta._rev;
-          meta._id = meta_key;
+if (argv.query) {
+  tp.query(argv, console.log);
+}
 
-          db.put(meta, function(err, results) {
-            if (err) return console.error('Migration error:',err);
-            console.log(results);
-            db.remove({_id:'_meta', _rev: metarev}, console.log);
-          });
-        }
-      })
+// create/select a sheet
+else if (argv.sheet) {
+  tp.sheet(argv.sheet, function(err, changed) {
+    if (err) console.error(err);
+    else if (changed)
+      console.log("> selected sheet '%s'", argv.sheet);
+    else
+      console.log("> sheet '%s' already selected", argv.sheet);
+  });
+}
+
+// list sheets
+else if (argv.list) {
+  tp.sheets(function(err, sheets, cur, active) {
+    if (err) return log(err);
+
+    sheets.forEach(function(sheet) {
+      if (sheet == cur) {
+        sheet = '*' + sheet;
+      }
+      out.write(" > " + sheet + "\n");
     });
-  }
+    if (sheets.length == 0)
+      console.log('No sheets found');
+  });
+}
 
-  // display current sheet
-  else if (argv.display) {
-    db.get(meta_key, function(err, meta) {
-      if (!meta) {
-        return console.error('No timesheets or checkins yet!');
-      }
+// check in to current sheet
+else if (argv.in) {
 
-      db.allDocs({include_docs: true}, function(err, docs) {
-        var format = "%s\t%s\t%s\t%s\t%s\n";
-        var header = util.format(format, "   Date\t", "Start", "End", "Duration", "Notes");
+  // start date: at, or start, or now
+  var start = argv.at
+    ? new Date(argv.at)
+    : argv.start
+        ? new Date(argv.start)
+        : new Date();
 
-        out.write(header);
+  tp.in({
+    start: start,
+    end: null,
+    note: argv._.join(' '),
+    id: argv.id || null
+  }, log);
 
-        docs.rows.forEach(function(row) {
-          if (row.id == meta_key) return;
-          if (row.doc.sheet != meta.current_sheet) return;
+}
 
-          var start = moment(row.doc.start);
-          var incomplete = false, end, duration;
+// check out of current sheet/task
+else if (argv.out) {
 
-          if (!row.doc.end) {
-            end = moment(new Date());
-            incomplete = true;
-          }
-          else {
-            end = moment(row.doc.end);
-          }
-          duration = moment.duration(start.diff(end, 'minutes'), 'minutes');
+  // end: specify with --at or --end. defaults to now
+  var end = argv.at
+    ? new Date(argv.at)
+    : argv.end
+        ? new Date(argv.end)
+        : new Date();
 
-          var line = util.format(format,
-                                 start.format('DD/MM/YYYY'),
-                                 start.format('HH:mm'),
-                                 incomplete ? '-' : end.format('HH:mm'),
-                                 duration.humanize(),
-                                 row.doc.note || '');
-          out.write(line);
-        });
-      });
-    });
-  }
+  tp.out({
+    end: end,
+    id: argv.id || null
+  }, log);
+}
+else if (argv.sync) {
+  tp.sync(argv.sync, console.log);
+}
 
-  // create/select a sheet
-  else if (argv.sheet) {
-    db.get(meta_key, function(err, meta) {
-      if (err && err.status != 404) return console.error(err);
-      if (!meta) {
-        meta = {
-          _id: meta_key,
-          sheets: []
-        };
-      }
-      if (meta.sheets.indexOf(argv.sheet) < 0) {
-        meta.sheets.push(argv.sheet);
-      }
-      if (!meta.current_sheet || meta.current_sheet != argv.sheet) {
-        out.write('> selected sheet ' + argv.sheet + '\n');
-        meta.current_sheet = argv.sheet;
-      }
-      else {
-        out.write('> already in sheet ' + argv.sheet + '\n');
-      }
-      db.put(meta);
-    });
-  }
-
-  // list sheets
-  else if (argv.list) {
-    db.get(meta_key, function(err, meta) {
-      if (meta && Array.isArray(meta.sheets)) {
-        console.log(meta.sheets);
-        meta.sheets.forEach(function(sheet) {
-          if (sheet == meta.current_sheet) {
-            sheet = '*' + sheet;
-          }
-          out.write(" > " + sheet + "\n");
-        });
-      }
-      else
-        console.log('No sheets found');
-    });
-  }
-
-  // check in to current sheet
-  else if (argv.in) {
-    db.get(meta_key, function(err, meta) {
-      if (err && err.status !== 404) return console.error(err);
-      if (!meta) {
-        meta = {_id: meta_key};
-      }
-      if (!meta.current_sheet) {
-        return console.error("No timesheet selected!");
-      }
-      if (meta.now && meta.now[meta.current_sheet]) {
-        return console.error('Already checked into "%s"', meta.current_sheet);
-      }
-      if (!meta.next_id) {
-        meta.next_id = 1;
-      }
-
-      var start = new Date();
-      var end = null;
-
-      // create the db record
-      var time = {
-        _id: ''+meta.next_id++,
-        start: start,
-        end: end,
-        sheet: meta.current_sheet,
-        note: argv._.join(' '),
-        timestamp: new Date()
-      }
-
-      // record this checkin in metadata
-      var now = meta.now || {};
-      now[meta.current_sheet] = time._id;
-      meta.now = now;
-
-      db.bulkDocs({docs: [meta, time]});
-      out.write('Checked into sheet "'+meta.current_sheet+'"\n');
-    });
-  }
-
-  // check out of current sheet/task
-  else if (argv.out) {
-    db.get(meta_key, function(err, meta) {
-      if (!meta) {
-        return console.error('No timesheet selected!');
-      }
-      if (!meta.current_sheet) {
-        return console.error('Not checked in to a sheet');
-      }
-      if (!meta.now || meta.now[meta.current_sheet] == undefined) {
-        console.log(meta);
-        return console.error('Not checked in to the current sheet ("%s")', meta.current_sheet);
-      }
-      var id = meta.now[meta.current_sheet];
-      db.get(id, function(err, time) {
-        if (err) {
-          return console.error(err);
-        }
-        time.end = new Date();
-        time.timestamp = new Date();
-        delete meta.now[meta.current_sheet];
-        db.bulkDocs({docs: [meta, time]});
-      });
-    });
-  }
-  else if (argv.sync) {
-    pouch(argv.sync, function(err, remote) {
-      if (err) return console.error(err);
-      db.replicate.to(remote, function(err, upResults) {
-        if (err) return console.error(err.reason);
-        db.replicate.from(remote, function(err, downResults) {
-          if (err) return console.error(err.reason);
-          console.log('Synced %d to remote, %d from remote', upResults.docs_written, downResults.docs_written);
-        });
-      });
-    });
-  }
-});
+function log(err, results) {
+  if (err) console.error("Error:", err.reason);
+  else console.log(results);
+}
