@@ -103,6 +103,42 @@ else if (argv.out) {
     id: argv.id || null
   }, log);
 }
+
+// display current sheet
+else if (argv.display) {
+  tp.sheets(function(err, sheets, cur, active) {
+    if (err) return log(err);
+
+    var format = "%s\t%s\t%s\t%s\t%s\n";
+    var header = util.format(format, "   Date\t", "Start", "End", "Duration", "Notes");
+
+    var options = argv;
+    options.sheet = options.sheet || cur;
+
+    tp.query(options, function(err, results) {
+      out.write(header);
+      results.rows.forEach(function(row) {
+        var start = moment(row.start);
+        var incomplete = false, end, duration;
+
+        if (!row.end) {
+          end = moment(new Date());
+          incomplete = true;
+        }
+        else {
+          end = moment(row.end);
+        }
+        duration = moment.duration(start.diff(end, 'minutes'), 'minutes');
+
+        var line = util.format(format,
+          start.format('DD/MM/YYYY'), start.format('HH:mm'),
+          incomplete ? '-' : end.format('HH:mm'), duration.humanize(), row.note || '');
+        out.write(line);
+      });
+    });
+  });
+}
+
 else if (argv.sync) {
   tp.sync(argv.sync, console.log);
 }
