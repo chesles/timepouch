@@ -211,6 +211,7 @@ Timepouch.prototype.sync = function(url, callback) {
  *  - active: boolean- true to return only active entries
  *  - note: a string or regexp
  *  - sheet: a string or array specifying which sheet(s) to get entries from
+ *  - sort: field to sort by
  */
 Timepouch.prototype.query = function(options, callback) {
   if (!this._init) return this.Q.push({task: 'query', args: arguments});
@@ -219,6 +220,8 @@ Timepouch.prototype.query = function(options, callback) {
     options.before = new Date(options.before);
   if (options.after && !(options.after instanceof Date))
     options.after = new Date(options.after);
+  if (!options.sort)
+    options.sort = 'start';
 
   var map = function(doc) {
     if (doc.type != 'timepouch') return;
@@ -250,6 +253,14 @@ Timepouch.prototype.query = function(options, callback) {
       if (belongs)
         filtered.push(doc);
     });
+
+    function cmp(a, b) {
+      if (a[options.sort] !== b[options.sort])
+        return a[options.sort] < b[options.sort] ? -1 : 1
+      return 0;
+    }
+
+    filtered.sort(cmp);
     return callback(null, {rows: filtered});
   }
 }
