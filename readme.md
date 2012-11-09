@@ -45,6 +45,17 @@ parse.
 Note that date parsing isn't very smart, so if you are specifying a date make
 sure it's obvious.
 
+# Displaying / querying data
+
+By default, `timepouch -d` will print out all the entries in the currently
+selected sheet. You can search and filter by the date, sheet, or note by using
+the following options (mix and match as needed):
+
+- `--before [date]` Show entries before the specified date/time
+- `--after [date]` Show entries after the specified date/time
+- `--sheet [sheet name]` Show entries in another sheet
+- `--note [search]` Show entries with a note containing 'search'
+
 # TODO
 
 - Build a web interface to make syncing with a CouchDB useful
