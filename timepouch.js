@@ -134,7 +134,7 @@ Timepouch.prototype.in = Timepouch.prototype.edit = function(options, callback) 
         // update current checked-in activity on this sheet
         if (!meta.now) meta.now = {}
 
-        if (time.end)
+        if (time.end && meta.now[meta.current_sheet])
           delete meta.now[meta.current_sheet];
         else 
           meta.now[meta.current_sheet] = info.id;
@@ -236,7 +236,7 @@ Timepouch.prototype.query = function(options, callback) {
       var doc = row.value;
 
       doc.start = doc.start ? new Date(doc.start) : null;
-      doc.end = doc.end ? new Date(doc.start) : null;
+      doc.end = doc.end ? new Date(doc.end) : null;
 
       // TODO: test before/after against start, or end?
       if (options.before && doc.start >= options.before)

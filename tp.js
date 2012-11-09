@@ -79,9 +79,12 @@ else if (argv.in) {
         ? new Date(argv.start)
         : new Date();
 
+  // check in and out in one fell swoop
+  var end = argv.end ? new Date(argv.end) : null;
+
   tp.in({
     start: start,
-    end: null,
+    end: end,
     note: argv._.join(' '),
     id: argv.id || null
   }, log);
@@ -145,5 +148,10 @@ else if (argv.sync) {
 
 function log(err, results) {
   if (err) console.error("Error:", err.reason);
-  else console.log(results);
+  else if (results.start && !results.end) {
+    console.log("> starting task '%s' at %s", results.note || '(no note)', results.start);
+  }
+  else if (results.start && results.end) {
+    console.log("> checked out of '%s' at %s", results.note || '(no note)', results.end);
+  }
 }
