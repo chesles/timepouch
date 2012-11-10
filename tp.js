@@ -4,8 +4,8 @@ var path = require('path')
   , util = require('util')
 
 var pouch = require('pouchdb')
-  , moment = require('moment')
   , timepouch = require('./timepouch')
+  , formats = require('./formats')
 
 var options = require('optimist')
   .alias('d', 'display')
@@ -87,7 +87,7 @@ else if (argv.in) {
     end: end,
     note: argv._.join(' '),
     id: argv.id || null
-  }, log);
+  }, inout);
 
 }
 
@@ -104,7 +104,7 @@ else if (argv.out) {
   tp.out({
     end: end,
     id: argv.id || null
-  }, log);
+  }, inout);
 }
 
 // display current sheet
@@ -112,32 +112,17 @@ else if (argv.display) {
   tp.sheets(function(err, sheets, cur, active) {
     if (err) return log(err);
 
-    var format = "%s\t%s\t%s\t%s\t%s\n";
-    var header = util.format(format, "   Date\t", "Start", "End", "Duration", "Notes");
-
     var options = argv;
     options.sheet = options.sheet || cur;
 
     tp.query(options, function(err, results) {
-      out.write(header);
-      results.rows.forEach(function(row) {
-        var start = moment(row.start);
-        var incomplete = false, end, duration;
+      var formatter = formats.text;
 
-        if (!row.end) {
-          end = moment(new Date());
-          incomplete = true;
-        }
-        else {
-          end = moment(row.end);
-        }
-        duration = moment.duration(start.diff(end, 'minutes'), 'minutes');
-
-        var line = util.format(format,
-          start.format('DD/MM/YYYY'), start.format('HH:mm'),
-          incomplete ? '-' : end.format('HH:mm'), duration.humanize(), row.note || '');
-        out.write(line);
-      });
+      if (options.format)
+        formatter = formats[options.format];
+      if (!formatter)
+        return console.error('> Unknown formatter "%s"', options.format);
+      formatter({out: out}, results.rows);
     });
   });
 }
@@ -146,7 +131,10 @@ else if (argv.sync) {
   tp.sync(argv.sync, console.log);
 }
 
-function log(err, results) {
+/*
+ * inout: output messages for checkin/checkout
+ */
+function inout(err, results) {
   if (err) console.error("Error:", err.reason);
   else if (results.start && !results.end) {
     console.log("> starting task '%s' at %s", results.note || '(no note)', results.start);
