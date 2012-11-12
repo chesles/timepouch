@@ -68,6 +68,60 @@ Timepouch.prototype.sheet = function(sheet, callback) {
 }
 
 /*
+ * rmsheet: remove a sheet (and optionally all entries in that sheet)
+ *
+ * sheet: the name of the sheet to delete
+ * entries: if true, remove all entries for the specified sheet (default: false)
+ */
+Timepouch.prototype.rmsheet = function(sheet, entries, callback) {
+  if (!this._init) return this.Q.push({task: 'rmsheet', args: arguments});
+
+  if (entries === undefined || entries instanceof Function) {
+    callback = entries || Timepouch.noop;
+    entries = null;
+  }
+  var self = this;
+  self.db.get(Timepouch.meta_key, function(err, meta) {
+    if (err && err.status !== 404) return callback(err);
+    if (!meta) {
+      return callback({reason: 'No timepouch metadata found'});
+    }
+
+    // remove sheet from the list of sheets
+    meta.sheets = meta.sheets.filter(function(el) {
+      return el !== sheet;
+    });
+
+    // remove entries on this sheet, if requested
+    if (entries) {
+      self.query({sheet: sheet}, function(err, results) {
+        var removed = 0;
+        if (results.rows.length == 0) {
+          return done();
+        }
+        results.rows.forEach(function(entry) {
+          self.db.remove(entry, function(err, response) {
+            if (err) {
+              console.error(err);
+            }
+            removed++;
+            if (removed == results.rows.length) {
+              done();
+            }
+          });
+        });
+      });
+    }
+    else {
+      return done();
+    }
+    function done() {
+      return self.db.put(meta, callback);
+    }
+  });
+}
+
+/*
  * sheets: get a list of timesheets
  *
  * callback should have signature (err, sheets, current_sheet, active_sheets)

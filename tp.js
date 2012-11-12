@@ -10,6 +10,7 @@ var pouch = require('pouchdb')
 var options = require('optimist')
   .alias('d', 'display')
   .alias('s', 'sheet')
+  .alias('r', 'remove')
   .alias('l', 'list')
   .alias('e', 'edit')
   .alias('i', 'in')
@@ -19,6 +20,7 @@ var options = require('optimist')
 
 options.describe('d', 'Display checkins for the current sheet');
 options.describe('s', 'Select or create a sheet');
+options.describe('r', 'Delete a sheet (add --entries to remove sheet and its entries)');
 options.describe('l', 'Display timesheets');
 options.describe('i', 'Check in to the current timesheet');
 options.describe('o', 'Check out of the current timesheet');
@@ -51,6 +53,11 @@ else if (argv.sheet) {
     else
       console.log("> sheet '%s' already selected", argv.sheet);
   });
+}
+
+// delete a sheet
+else if (argv.remove) {
+  tp.rmsheet(argv.remove, argv.entries !== undefined, console.log);
 }
 
 // list sheets
