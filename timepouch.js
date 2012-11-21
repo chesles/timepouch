@@ -1,15 +1,16 @@
-var Pouch = require('pouchdb')
+if (typeof module !== 'undefined' && module.exports) {
+  var Pouch = require('pouchdb');
+  module.exports = Timepouch;
+}
 
-module.exports = Timepouch;
-
-function Timepouch(name) {
+function Timepouch(name, callback) {
   if (this === global) return new Timepouch(name);
 
   var self = this;
   self._init = false;
   self.Q = [];
   self.db = Pouch(name, function(err, db) {
-    if (err) return console.error(err);
+    if (err) return callback(err);
     self._init = true;
     self._doQ();
   });
@@ -70,8 +71,9 @@ Timepouch.prototype.sheet = function(sheet, callback) {
 /*
  * rmsheet: remove a sheet (and optionally all entries in that sheet)
  *
- * sheet: the name of the sheet to delete
+ * sheet: the name of the sheet to delete (pass boolean true to delete current sheet)
  * entries: if true, remove all entries for the specified sheet (default: false)
+ * callback: a function that takes (err, response) response looks like {ok: true, sheet: deletedsheet}
  */
 Timepouch.prototype.rmsheet = function(sheet, entries, callback) {
   if (!this._init) return this.Q.push({task: 'rmsheet', args: arguments});
@@ -84,13 +86,23 @@ Timepouch.prototype.rmsheet = function(sheet, entries, callback) {
   self.db.get(Timepouch.meta_key, function(err, meta) {
     if (err && err.status !== 404) return callback(err);
     if (!meta) {
-      return callback({reason: 'No timepouch metadata found'});
+      return callback({reason: 'no timepouch metadata found'});
+    }
+    if (sheet === true) {
+      sheet = meta.current_sheet;
+    }
+    if (!sheet) {
+      return callback({reason: 'no sheet specified/selected'});
     }
 
     // remove sheet from the list of sheets
     meta.sheets = meta.sheets.filter(function(el) {
       return el !== sheet;
     });
+
+    if (meta.current_sheet == sheet) {
+      meta.current_sheet = null;
+    }
 
     // remove entries on this sheet, if requested
     if (entries) {
@@ -116,7 +128,10 @@ Timepouch.prototype.rmsheet = function(sheet, entries, callback) {
       return done();
     }
     function done() {
-      return self.db.put(meta, callback);
+      return self.db.put(meta, function(err, response) {
+        if (err) return callback(err);
+        callback(err, {ok: response.ok, sheet: sheet});
+      });
     }
   });
 }
@@ -154,33 +169,41 @@ Timepouch.prototype.in = Timepouch.prototype.edit = function(options, callback) 
   db.get(Timepouch.meta_key, function(err, meta) {
     if (err && err.status !== 404) return callback(err);
     if (!meta) {
-      return callback({error: 'no_metadata', reason: 'No metadata found'});
+      return callback({error: 'no_metadata', reason: 'no metadata found'});
     }
-    if (!meta.current_sheet) {
-      return callback({error: 'no_sheet_selected', reason: 'No sheet selected'});
+    if (!meta.current_sheet && !options.sheet) {
+      return callback({error: 'no_sheet_selected', reason: 'no sheet selected'});
     }
 
     if (meta.now && meta.now[meta.current_sheet] && !options.id) {
-      return callback({error: 'already_checked_in', reason: 'Already checked in'});
+      return callback({error: 'already_checked_in', reason: 'already checked in'});
     }
 
     if (options.id) {
-      db.get(options.id, update);
+      db.get(options.id, upsert);
     }
     else {
-      update(null, {});
+      upsert(null, {});
     }
 
-    function update(err, time) {
+    function upsert(err, time) {
       if (err) return callback(err);
 
-      time.start = options.start ? new Date(options.start) : time.start || new Date();
-      time.end = options.end ? new Date(options.end) : time.end || null;
+      time.start = options.start
+       ? new Date(options.start)
+       : time.start || new Date();
+      time.end = options.end
+        ? new Date(options.end)
+        : time.end || null;
       time.note = options.note || time.note || '';
       time.sheet = options.sheet || time.sheet || meta.current_sheet || '';
 
       time.timestamp = new Date();
       time.type = 'timepouch';
+
+      if (meta.sheets.indexOf(time.sheet) < 0) {
+        meta.sheets.push(time.sheet);
+      }
 
       db.put(time, function(err, info) {
         if (err) return callback(err);
@@ -188,10 +211,10 @@ Timepouch.prototype.in = Timepouch.prototype.edit = function(options, callback) 
         // update current checked-in activity on this sheet
         if (!meta.now) meta.now = {}
 
-        if (time.end && meta.now[meta.current_sheet])
-          delete meta.now[meta.current_sheet];
+        if (time.end && meta.now[time.sheet])
+          delete meta.now[time.sheet];
         else 
-          meta.now[meta.current_sheet] = info.id;
+          meta.now[time.sheet] = info.id;
 
         db.put(meta, function(err, info) {
           return callback(err, time);
@@ -219,10 +242,10 @@ Timepouch.prototype.out = function(options, callback) {
   db.get(Timepouch.meta_key, function(err, meta) {
     if (err && err.status !== 404) return callback(err);
     if (!meta) {
-      return callback({error: 'no_metadata', reason: 'No metadata found'});
+      return callback({error: 'no_metadata', reason: 'no metadata found'});
     }
     if (meta.now && !meta.now[meta.current_sheet] && !options.id) {
-      return callback({error: 'not_checked_in', reason: 'Not checked in'});
+      return callback({error: 'not_checked_in', reason: 'not checked in'});
     }
     options.end = options.end || new Date();
     options.id = options.id || meta.now[meta.current_sheet];
@@ -233,6 +256,9 @@ Timepouch.prototype.out = function(options, callback) {
 
 /*
  * sync: push local changes to CouchDB at url, then pull remote changes down
+ *
+ * - url: the couchdb url to sync with
+ * - callback: a function taking (err, local->remote results, local<-remote results)
  */
 Timepouch.prototype.sync = function(url, callback) {
   if (!this._init) return this.Q.push({task: 'sync', args: arguments});
@@ -249,8 +275,7 @@ Timepouch.prototype.sync = function(url, callback) {
       self.db.replicate.from(remote, function(err, downResults) {
         if (err) return callback(err);
 
-        console.log('Synced %d to remote, %d from remote',
-                    upResults.docs_written, downResults.docs_written);
+        return callback(err, upResults, downResults);
       });
     });
   });
