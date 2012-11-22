@@ -190,13 +190,22 @@ Timepouch.prototype.in = Timepouch.prototype.edit = function(options, callback) 
       if (err) return callback(err);
 
       time.start = options.start
-       ? new Date(options.start)
-       : time.start || new Date();
+        ? new Date(options.start)
+        : time.start || new Date();
       time.end = options.end
         ? new Date(options.end)
         : time.end || null;
       time.note = options.note || time.note || '';
+
+      // if we are moving an entry to another sheet, we have to make sure to
+      // update the now object in the metadata
+      var prevsheet = time.sheet;
       time.sheet = options.sheet || time.sheet || meta.current_sheet || '';
+      if (options.id && prevsheet && time.sheet !== prevsheet) {
+        if (meta.now[prevsheet] === options.id) {
+          delete meta.now[prevsheet];
+        }
+      }
 
       time.timestamp = new Date();
       time.type = 'timepouch';
