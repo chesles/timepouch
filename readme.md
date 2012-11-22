@@ -19,7 +19,7 @@
 
 The `--at`, `--start`, and `--end` options are available to specify dates/times.
 
-## Example
+## Examples
 
     $ timepouch -s some-project
     > selected sheet 'some-project'
@@ -42,8 +42,12 @@ parse.
     # check in, and out in one go (use --start and --end, NOT --at)
     $ timepouch -i doin sem stuffs --start 'Nov 8, 2012 9:00' --end 'Nov 8, 2012 17:00'
 
-Note that date parsing isn't very smart, so if you are specifying a date make
-sure it's obvious.
+You can also specify dates relative to right now, like "5 minutes ago".
+
+    $ timepouch -o --at '15 minutes ago'
+
+    # or a but more concise
+    $ timepouch -oa '15m ago'
 
 # Displaying / querying data
 

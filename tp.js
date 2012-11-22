@@ -16,6 +16,7 @@ var options = require('optimist')
   .alias('e', 'edit')
   .alias('i', 'in')
   .alias('o', 'out')
+  .alias('a', 'at')
   .alias('v', 'verbose')
   .alias('h', 'help')
   .boolean(['i', 'o'])
@@ -58,7 +59,7 @@ else if (argv.in || argv.edit) {
         : argv.edit ? null : new Date();
 
   // check in and out in one fell swoop
-  var end = argv.end ? new Date(argv.end) : null;
+  var end = argv.end ? getDate(argv.end) : null;
 
   tp.in({
     start: start,
