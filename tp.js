@@ -4,6 +4,7 @@ var path = require('path')
   , util = require('util')
 
 var pouch = require('pouchdb')
+  , naturaltime = require('naturaltime')
   , timepouch = require('./timepouch')
   , formats = require('./formats')
 
@@ -51,9 +52,9 @@ else if (argv.in || argv.edit) {
 
   // start date: at, or start, defaults to now or null if --edit was specified
   var start = argv.at
-    ? new Date(argv.at)
+    ? getDate(argv.at)
     : argv.start
-        ? new Date(argv.start)
+        ? getDate(argv.start)
         : argv.edit ? null : new Date();
 
   // check in and out in one fell swoop
@@ -74,9 +75,9 @@ else if (argv.out) {
 
   // end: specify with --at or --end. defaults to now
   var end = argv.at
-    ? new Date(argv.at)
+    ? getDate(argv.at)
     : argv.end
-        ? new Date(argv.end)
+        ? getDate(argv.end)
         : new Date();
 
   tp.out({
@@ -186,4 +187,12 @@ function inout(err, results) {
   else if (results.start && results.end) {
     console.log("> %s: checked out of '%s' at %s", results.sheet, results.note || '(no note)', results.end);
   }
+}
+
+function getDate(string) {
+  var d = new Date(string);
+  if (d == 'Invalid Date') {
+    d = naturaltime(string);
+  }
+  return d;
 }
