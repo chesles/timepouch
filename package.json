@@ -1,6 +1,6 @@
 {
   "name": "timepouch",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "A simple command-line time tracker, inspired by timetrap and built on PouchDB so its database is syncable.",
   "bin": "tp.js",
   "dependencies": {
@@ -8,6 +8,7 @@
     "pouchdb": "~0.0.5",
     "duration": "*",
     "dateformat": "*",
+    "naturaltime": "*",
     "easy-table": "*"
   },
   "devDependencies": {},
