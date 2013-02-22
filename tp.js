@@ -83,7 +83,8 @@ else if (argv.out) {
 
   tp.out({
     end: end,
-    id: argv.id || null
+    id: argv.id || null,
+    sheet: argv.sheet || null
   }, inout);
 }
 

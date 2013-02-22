@@ -6,13 +6,13 @@ if (typeof module !== 'undefined' && module.exports) {
 function Timepouch(name, callback) {
   if (this === global) return new Timepouch(name);
 
-  var self = this;
-  self._init = false;
-  self.Q = [];
-  self.db = Pouch(name, function(err, db) {
+  var timepouch = this;
+  timepouch._init = false;
+  timepouch.Q = [];
+  timepouch.db = Pouch(name, function(err, db) {
     if (err) return callback(err);
-    self._init = true;
-    self._doQ();
+    timepouch._init = true;
+    timepouch._doQ();
   });
 }
 
@@ -24,10 +24,10 @@ Timepouch.noop = function(err) { if (err) console.error(err); };
  * order
  */
 Timepouch.prototype._doQ = function() {
-  var self = this;
-  this.Q.forEach(function(task) {
-    self[task.task].apply(self, task.args);
-  });
+  while (this.Q.length > 0) {
+    var task = this.Q.shift();
+    this[task.task].apply(this, task.args);
+  };
 }
 
 /*
@@ -82,8 +82,8 @@ Timepouch.prototype.rmsheet = function(sheet, entries, callback) {
     callback = entries || Timepouch.noop;
     entries = null;
   }
-  var self = this;
-  self.db.get(Timepouch.meta_key, function(err, meta) {
+  var timepouch = this;
+  timepouch.db.get(Timepouch.meta_key, function(err, meta) {
     if (err && err.status !== 404) return callback(err);
     if (!meta) {
       return callback({reason: 'no timepouch metadata found'});
@@ -106,13 +106,13 @@ Timepouch.prototype.rmsheet = function(sheet, entries, callback) {
 
     // remove entries on this sheet, if requested
     if (entries) {
-      self.query({sheet: sheet}, function(err, results) {
+      timepouch.query({sheet: sheet}, function(err, results) {
         var removed = 0;
         if (results.rows.length == 0) {
           return done();
         }
         results.rows.forEach(function(entry) {
-          self.db.remove(entry, function(err, response) {
+          timepouch.db.remove(entry, function(err, response) {
             if (err) {
               console.error(err);
             }
@@ -128,7 +128,7 @@ Timepouch.prototype.rmsheet = function(sheet, entries, callback) {
       return done();
     }
     function done() {
-      return self.db.put(meta, function(err, response) {
+      return timepouch.db.put(meta, function(err, response) {
         if (err) return callback(err);
         callback(err, {ok: response.ok, sheet: sheet});
       });
@@ -222,7 +222,7 @@ Timepouch.prototype.in = Timepouch.prototype.edit = function(options, callback) 
 
         if (time.end && meta.now[time.sheet])
           delete meta.now[time.sheet];
-        else 
+        else if (!time.end)
           meta.now[time.sheet] = info.id;
 
         db.put(meta, function(err, info) {
@@ -246,20 +246,21 @@ Timepouch.prototype.out = function(options, callback) {
 
   if (!callback) callback = Timepouch.noop;
   var db = this.db
-    , self = this
+    , timepouch = this
 
   db.get(Timepouch.meta_key, function(err, meta) {
     if (err && err.status !== 404) return callback(err);
     if (!meta) {
       return callback({error: 'no_metadata', reason: 'no metadata found'});
     }
-    if (meta.now && !meta.now[meta.current_sheet] && !options.id) {
+    var sheet = options.sheet || meta.current_sheet;
+    if (meta.now && !meta.now[sheet] && !options.id) {
       return callback({error: 'not_checked_in', reason: 'not checked in'});
     }
     options.end = options.end || new Date();
-    options.id = options.id || meta.now[meta.current_sheet];
+    options.id = options.id || meta.now[sheet];
 
-    self.edit(options, callback);
+    timepouch.edit(options, callback);
   });
 }
 
@@ -274,14 +275,14 @@ Timepouch.prototype.sync = function(url, callback) {
 
   if (!callback) callback = Timepouch.noop;
 
-  var self = this;
+  var timepouch = this;
   Pouch(url, function(err, remote) {
     if (err) return callback(err);
 
-    self.db.replicate.to(remote, function(err, upResults) {
+    timepouch.db.replicate.to(remote, function(err, upResults) {
       if (err) return callback(err);
 
-      self.db.replicate.from(remote, function(err, downResults) {
+      timepouch.db.replicate.from(remote, function(err, downResults) {
         if (err) return callback(err);
 
         return callback(err, upResults, downResults);
