@@ -9,8 +9,9 @@ function Timepouch(name, callback) {
   var timepouch = this;
   timepouch._init = false;
   timepouch.Q = [];
-  timepouch.db = Pouch(name, function(err, db) {
+  Pouch(name, function(err, db) {
     if (err) return callback(err);
+    timepouch.db = db
     timepouch._init = true;
     timepouch._doQ();
   });
