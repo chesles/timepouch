@@ -91,7 +91,7 @@ else if (argv.out) {
 // display current sheet
 else if (argv.display) {
   tp.sheets(function(err, sheets, cur, active) {
-    if (err) return log(err);
+    if (err) return console.log(err);
 
     var options = argv;
     if (options.display !== true) {

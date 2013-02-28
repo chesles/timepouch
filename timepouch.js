@@ -215,7 +215,7 @@ Timepouch.prototype.in = Timepouch.prototype.edit = function(options, callback) 
         meta.sheets.push(time.sheet);
       }
 
-      db.put(time, function(err, info) {
+      db.post(time, function(err, info) {
         if (err) return callback(err);
 
         // update current checked-in activity on this sheet
